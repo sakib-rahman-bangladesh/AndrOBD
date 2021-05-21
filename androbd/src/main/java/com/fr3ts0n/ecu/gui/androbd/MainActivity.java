@@ -26,6 +26,8 @@ import android.app.AlertDialog;
 import android.app.SearchManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -84,8 +86,6 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
-import static com.fr3ts0n.ecu.gui.androbd.SettingsActivity.ELM_TIMING_SELECT;
-
 /**
  * Main Activity for AndrOBD app
  */
@@ -140,7 +140,7 @@ public class MainActivity extends PluginManager
 	public static final String TOAST = "toast";
 	private static final String MEASURE_SYSTEM = "measure_system";
 	private static final String NIGHT_MODE = "night_mode";
-	private static final String ELM_ADAPTIVE_TIMING = ELM_TIMING_SELECT;
+	private static final String ELM_ADAPTIVE_TIMING = "adaptive_timing_mode";
 	private static final String ELM_RESET_ON_NRC = "elm_reset_on_nrc";
 	private static final String PREF_USE_LAST = "USE_LAST_SETTINGS";
 	public static final String PREF_AUTOHIDE = "autohide_toolbar";
@@ -225,6 +225,7 @@ public class MainActivity extends PluginManager
 	 */
 	private static ObdItemAdapter mPidAdapter;
 	private static VidItemAdapter mVidAdapter;
+	private static TidItemAdapter mTidAdapter;
 	private static DfcItemAdapter mDfcAdapter;
 	private static PluginDataAdapter mPluginDataAdapter;
 	private static ObdItemAdapter currDataAdapter;
@@ -284,9 +285,9 @@ public class MainActivity extends PluginManager
 	};
 
 	/**
-	 * activation of night mode
+	 * current status of night mode
 	 */
-	private boolean nightMode = false;
+	public static  boolean nightMode = false;
 	/**
 	 * current OBD service
 	 */
@@ -342,6 +343,7 @@ public class MainActivity extends PluginManager
 		// Set up all data adapters
 		mPidAdapter = new ObdItemAdapter(this, R.layout.obd_item, ObdProt.PidPvs);
 		mVidAdapter = new VidItemAdapter(this, R.layout.obd_item, ObdProt.VidPvs);
+		mTidAdapter = new TidItemAdapter(this, R.layout.obd_item, ObdProt.VidPvs);
 		mDfcAdapter = new DfcItemAdapter(this, R.layout.obd_item, ObdProt.tCodes);
 		mPluginDataAdapter = new PluginDataAdapter(this, R.layout.obd_item, mPluginPvs);
 		currDataAdapter = mPidAdapter;
@@ -566,7 +568,7 @@ public class MainActivity extends PluginManager
 		{
 			case R.id.day_night_mode:
 				// toggle night mode setting
-				prefs.edit().putBoolean(NIGHT_MODE, !isNightMode()).apply();
+				prefs.edit().putBoolean(NIGHT_MODE, !nightMode).apply();
 				return true;
 
 			case R.id.secure_connect_scan:
@@ -617,6 +619,10 @@ public class MainActivity extends PluginManager
 
 			case R.id.service_freezeframes:
 				setObdService(ObdProt.OBD_SVC_FREEZEFRAME, item.getTitle());
+				return true;
+
+			case R.id.service_testcontrol:
+				setObdService(ObdProt.OBD_SVC_CTRL_MODE, item.getTitle());
 				return true;
 
 			case R.id.service_codes:
@@ -870,6 +876,7 @@ public class MainActivity extends PluginManager
 	public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id)
 	{
 		Intent intent;
+		EcuDataPv pv;
 
 		switch (CommService.elm.getService())
 		{
@@ -877,7 +884,7 @@ public class MainActivity extends PluginManager
 			 * ->Long click on an item starts the single item dashboard activity
 			 */
 			case ObdProt.OBD_SVC_DATA:
-				EcuDataPv pv = (EcuDataPv) getListAdapter().getItem(position);
+				pv = (EcuDataPv) getListAdapter().getItem(position);
 				/* only numeric values may be shown as graph/dashboard */
 				if (pv.get(EcuDataPv.FID_VALUE) instanceof Number)
 				{
@@ -907,6 +914,25 @@ public class MainActivity extends PluginManager
 					log.log(Level.SEVERE, "WebSearch DFC", e);
 					Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
 				}
+				break;
+
+			case ObdProt.OBD_SVC_VEH_INFO:
+				// copy VID content to clipboard ...
+				pv = (EcuDataPv) getListAdapter().getItem(position);
+				ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+				ClipData clip = ClipData.newPlainText(String.valueOf(pv.get(EcuDataPv.FID_DESCRIPT)),
+													  String.valueOf(pv.get(EcuDataPv.FID_VALUE)));
+				clipboard.setPrimaryClip(clip);
+				// Show Toast message
+				Toast.makeText(this, R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show();
+				break;
+
+			case ObdProt.OBD_SVC_CTRL_MODE:
+				pv = (EcuDataPv) getListAdapter().getItem(position);
+				// Confirm & perform OBD test control ...
+				confirmObdTestControl(pv.get(EcuDataPv.FID_DESCRIPT).toString(),
+									  ObdProt.OBD_SVC_CTRL_MODE,
+									  pv.getAsInt(EcuDataPv.FID_PID));
 				break;
 		}
 		return true;
@@ -978,6 +1004,7 @@ public class MainActivity extends PluginManager
 						// set adapters data source to loaded list instances
 						mPidAdapter.setPvList(ObdProt.PidPvs);
 						mVidAdapter.setPvList(ObdProt.VidPvs);
+						mTidAdapter.setPvList(ObdProt.VidPvs);
 						mDfcAdapter.setPvList(ObdProt.tCodes);
 						// set OBD data mode to the one selected by input file
 						setObdService(CommService.elm.getService(), getString(R.string.saved_data));
@@ -1202,20 +1229,26 @@ public class MainActivity extends PluginManager
 	private int[] toIntArray(String input)
 	{
 		int[] result = {};
+		int numValidEntries = 0;
 		try
 		{
-			String beforeSplit = input.replaceAll("\\[|\\]|\\s", "");
-			String[] split = beforeSplit.split("\\,");
-			result = new int[split.length];
-			for (int i = 0; i < split.length; i++)
+			String beforeSplit = input.replaceAll("\\[|]|\\s", "");
+			String[] split = beforeSplit.split(",");
+			int[] ints = new int[split.length];
+			for (String s : split)
 			{
-				result[i] = Integer.parseInt(split[i]);
+				if (s.length() > 0)
+				{
+					ints[numValidEntries++] = Integer.parseInt(s);
+				}
 			}
+			result = Arrays.copyOf(ints, numValidEntries);
 		}
 		catch(Exception ex)
 		{
 			log.severe(ex.toString());
 		}
+
 		return result;
 	}
 
@@ -1305,16 +1338,16 @@ public class MainActivity extends PluginManager
 		}
 	};
 
-	private boolean isNightMode()
+	protected void setNightMode(boolean nightMode)
 	{
-		return nightMode;
-	}
+		// store last mode selection
+		MainActivity.nightMode = nightMode;
 
-	private void setNightMode(boolean nightMode)
-	{
-		this.nightMode = nightMode;
+		// Set display theme based on specified mode
 		setTheme(nightMode ? R.style.AppTheme_Dark : R.style.AppTheme);
 		getWindow().getDecorView().setBackgroundColor(nightMode ? Color.BLACK : Color.WHITE);
+
+		// Trigger screen update to get immediate reaction
 		setObdService(obdService, null);
 	}
 
@@ -1863,6 +1896,10 @@ public class MainActivity extends PluginManager
 				Toast.makeText(this, getString(R.string.long_press_dfc_hint), Toast.LENGTH_LONG).show();
 				break;
 
+			case ObdProt.OBD_SVC_CTRL_MODE:
+				currDataAdapter = mTidAdapter;
+				break;
+
 			case ObdProt.OBD_SVC_NONE:
 				setContentView(R.layout.startup_layout);
 				// intentionally no break to initialize adapter
@@ -1947,8 +1984,10 @@ public class MainActivity extends PluginManager
 			// trim to really detected value (workaround for invalid length reported)
 			selectedPositions = Arrays.copyOf(selectedPositions, j);
 		}
+		String strPreselect = Arrays.toString(selectedPositions);
+		log.fine("Preselection: '"+strPreselect+"'");
 		// save this as last seleted positions
-		prefs.edit().putString(PRESELECT.LAST_ITEMS.toString(), Arrays.toString(selectedPositions))
+		prefs.edit().putString(PRESELECT.LAST_ITEMS.toString(), strPreselect)
 			.apply();
 		return selectedPositions;
 	}
@@ -2100,6 +2139,57 @@ public class MainActivity extends PluginManager
 			.show();
 	}
 
+
+	/**
+	 * confirm OBD test control
+	 * confirmation dialog is shown and the operation is confirmed
+	 */
+	private void confirmObdTestControl(String testControlName, int service, int tid)
+	{
+		dlgBuilder
+				.setIcon(android.R.drawable.ic_dialog_alert)
+				.setTitle(testControlName)
+				.setMessage(R.string.obd_test_confirm)
+				.setPositiveButton(android.R.string.yes,
+								   new DialogInterface.OnClickListener()
+								   {
+									   @Override
+									   public void onClick(DialogInterface dialog, int which)
+									   {
+									   	  runObdTestControl(testControlName, service, tid);
+									   }
+								   })
+				.setNegativeButton(android.R.string.no, null)
+				.show();
+	}
+
+	/**
+	 * perform OBD test control
+	 * confirmation dialog is shown and the operation is confirmed
+	 */
+	private void runObdTestControl(String testControlName, int service, int tid)
+	{
+		// start desired test TID
+		char emptyBuffer[] = {};
+		CommService.elm.writeTelegram(emptyBuffer, service, tid);
+
+		// Show test progress message
+		dlgBuilder
+				.setIcon(android.R.drawable.ic_dialog_info)
+				.setTitle(testControlName)
+				.setMessage(R.string.obd_test_progress)
+				.setPositiveButton(android.R.string.ok,
+								   new DialogInterface.OnClickListener()
+								   {
+									   @Override
+									   public void onClick(DialogInterface dialog, int which)
+									   {
+									   }
+								   })
+				.setNegativeButton(null, null)
+				.show();
+	}
+
 	/**
 	 * Set new data view mode
 	 *
@@ -2117,55 +2207,45 @@ public class MainActivity extends PluginManager
 				case LIST:
 					setFiltered(false);
 					getListView().setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
+					this.dataViewMode = dataViewMode;
 					break;
 
 				case FILTERED:
-					setFiltered(true);
-					getListView().setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+					if (getListView().getCheckedItemCount() > 0)
+					{
+						setFiltered(true);
+						getListView().setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+						this.dataViewMode = dataViewMode;
+					}
 					break;
 
 				case HEADUP:
 				case DASHBOARD:
-					/* if we are in OBD data mode:
-					 * -> Short click on an item starts the readout activity
-					 */
-					if (CommService.elm.getService() == ObdProt.OBD_SVC_DATA)
+					if (getListView().getCheckedItemCount() > 0)
 					{
-						if (getListView().getCheckedItemCount() > 0)
-						{
-							DashBoardActivity.setAdapter(getListAdapter());
-							Intent intent = new Intent(this, DashBoardActivity.class);
-							intent.putExtra(DashBoardActivity.POSITIONS, getSelectedPositions());
-							intent.putExtra(DashBoardActivity.RES_ID,
-								dataViewMode == DATA_VIEW_MODE.DASHBOARD
-								? R.layout.dashboard
-								: R.layout.head_up);
-							startActivityForResult(intent, REQUEST_GRAPH_DISPLAY_DONE);
-						}
+						DashBoardActivity.setAdapter(getListAdapter());
+						Intent intent = new Intent(this, DashBoardActivity.class);
+						intent.putExtra(DashBoardActivity.POSITIONS, getSelectedPositions());
+						intent.putExtra(DashBoardActivity.RES_ID,
+							dataViewMode == DATA_VIEW_MODE.DASHBOARD
+							? R.layout.dashboard
+							: R.layout.head_up);
+						startActivityForResult(intent, REQUEST_GRAPH_DISPLAY_DONE);
+						this.dataViewMode = dataViewMode;
 					}
 					break;
 
 				case CHART:
-					/* if we are in OBD data mode:
-					 * -> Short click on an item starts the readout activity
-					 */
-					if (CommService.elm.getService() == ObdProt.OBD_SVC_DATA)
+					if (getListView().getCheckedItemCount() > 0)
 					{
-						if (getListView().getCheckedItemCount() > 0)
-						{
-							ChartActivity.setAdapter(getListAdapter());
-							Intent intent = new Intent(this, ChartActivity.class);
-							intent.putExtra(ChartActivity.POSITIONS, getSelectedPositions());
-							startActivityForResult(intent, REQUEST_GRAPH_DISPLAY_DONE);
-						}
-						else
-						{
-							setMenuItemEnable(R.id.chart_selected, false);
-						}
+						ChartActivity.setAdapter(getListAdapter());
+						Intent intent = new Intent(this, ChartActivity.class);
+						intent.putExtra(ChartActivity.POSITIONS, getSelectedPositions());
+						startActivityForResult(intent, REQUEST_GRAPH_DISPLAY_DONE);
+						this.dataViewMode = dataViewMode;
 					}
 					break;
 			}
-			this.dataViewMode = dataViewMode;
 
 			// remember this as the last data view mode (if not regular list)
 			if (dataViewMode != DATA_VIEW_MODE.LIST)

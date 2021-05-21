@@ -37,6 +37,18 @@
 \n 
 \n Andere, herstellerspezifische Einstellungen können dadurch verloren gehen. 
 \n Dadurch kann eine Lernphase nötig werden, während welcher der Motor ungleichmäßig läuft.</string>
+    <string name="obd_test_progress">OBD Teststeuerung aktiviert.\n
+        Bitte Fahrzeugreaktion prüfen.</string>
+    <string name="obd_test_confirm">OBD Teststeuerung\n\n
+        Der angeforderte Test kann folgendes verusachen:\n
+        - Fahrzeugbewegung\n
+        - Abgasrauch\n
+        - Hohe Abgastemperatur\n
+        - Laute Motorgeräusche\n
+        - Kraftstoffdämpfe\n
+        - etc.\n\n
+        Bitte bestätigen Sie diesen Test auf eigene Gefahr in einer betriebssicheren Umgebung durchzuführen!
+    </string>
     <string name="demo_started">DEMO-Modus gestartet</string>
     <string name="demo_stopped">DEMO-Modus beendet</string>
     <string name="load">Messung laden</string>
@@ -145,7 +157,7 @@
     <string name="send_after_export_descr">Direkt nach dem Export nach Senden der CSV-Datei fragen\?</string>
     <string name="tab">Tab</string>
     <string name="comma">Komma</string>
-    <string name="configure">Konfigurieren</string>
+    <string name="configure">Konfiguration</string>
     <string name="data_disable_max">Daten Deaktivierungs-Limit</string>
     <string name="data_disable_max_description">Anzahl fehlerhaft erhalterer Daten bevor Datenpunkt deaktiviert wird</string>
     <string name="plugin_manager">Pluginverwaltung</string>
@@ -166,4 +178,6 @@
     <string name="master">Hauptrechner</string>
     <string name="comm_baudrate">ELM Baudrate</string>
     <string name="comm_baudrate_description">USB serielle Übertragungsgeschwindigkeit</string>
+    <string name="service_testcontrol">OBD Teststeuerung</string>
+    <string name="copied_to_clipboard">Kopiert in Zwischenablage</string>
 </resources>

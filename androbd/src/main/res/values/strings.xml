@@ -2,9 +2,10 @@
 <resources>
     <!--  AndrOBD -->
     <string name="app_name" translatable="false">AndrOBD</string>
-    <string name="copyright_fr3ts0n" translatable="false">© 2015-2020 fr3ts0n</string>
+    <string name="copyright_fr3ts0n" translatable="false">© 2015-2021 fr3ts0n</string>
     <string name="translation_credits">Translation by fr3ts0n</string>
     <string name="app_description">Android OBD vehicle diagnostics app for ELM327 Bluetooth adapter</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="title_connecting">Connecting…</string>
     <string name="title_connected_to">Connected %s</string>
     <string name="logo">Logo</string>
@@ -16,6 +17,7 @@
     <string name="obd_veh_info">OBD Vehicle Info</string>
     <string name="obd_data">OBD Data</string>
     <string name="service_freezeframes">OBD Freeze Frames</string>
+    <string name="service_testcontrol">OBD test control</string>
     <string name="obd_codes">OBD fault codes</string>
     <string name="obd_permanentcodes">OBD fault codes (permanent)</string>
     <string name="obd_pendingcodes">OBD fault codes (pending)</string>
@@ -36,7 +38,19 @@ information, including:\n
 Other manufacturer specific clearing/resetting actions may occur.\n
 The loss of data may cause the vehicle to run poorly for a short \n
 period of time while the ECU recalibrates itself.
-     </string>
+    </string>
+    <string name="obd_test_progress">OBD test control in progress.\n
+        Please check vehicle reaction.</string>
+    <string name="obd_test_confirm">OBD test control requested.\n\n
+        The requested OBD test control may generate:\n
+        - Vehicle motion\n
+        - Exhaust smoke\n
+        - High exhaust temperature\n
+        - Loud engine noise\n
+        - Fuel vapor\n
+        - etc.\n\n
+        Please confirm to perform this test control on your own risk in a safe test environment only!
+    </string>
     <!--  BtDeviceListActivity -->
     <string name="select_device">Select adapter</string>
     <string name="none_paired">No Devices Paired</string>
@@ -79,7 +93,7 @@ period of time while the ECU recalibrates itself.
     </string-array>
     <string name="items_for_display">Data items to display</string>
     <string name="items_for_display_descr">Select all data items to be displayed …</string>
-    <string-array name="empty" translatable="false"/>
+    <string-array name="empty" translatable="false" />
     <string name="debugging">Debugging</string>
     <string name="logging_level">Logging level</string>
     <string name="logging_level_description">Level of details to be logged into debug log file</string>
