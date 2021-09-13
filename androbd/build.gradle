@@ -8,8 +8,8 @@ android {
         minSdkVersion 17
         // SDK 25 to allow background service mechanism for plugins
         targetSdkVersion 25
-        versionCode 20303
-        versionName 'V2.3.3'
+        versionCode 20400
+        versionName 'V2.4.0'
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
@@ -47,5 +47,5 @@ dependencies {
     implementation project(':library')
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'com.github.mik3y:usb-serial-for-android:3.3.0'
-    implementation 'com.github.anastr:speedviewlib:1.5.5'
+    implementation 'com.github.anastr:speedviewlib:1.5.51'
 }
